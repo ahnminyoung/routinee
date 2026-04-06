@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(auth)/forgot-password.tsx
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';

@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/category.service.ts
 import { supabase } from './supabase';
 import { Category, CreateCategoryDto, CategoryType } from '../types';
 import { isMissingTableError, toUserFacingSupabaseError } from './supabase-error';

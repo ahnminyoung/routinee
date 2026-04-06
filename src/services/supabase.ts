@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';

@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/auth.service.ts
 import {
   supabase,
   isSupabaseConfigured,

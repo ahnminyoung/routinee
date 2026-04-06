@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(auth)/_layout.tsx
 import { Redirect, Stack } from 'expo-router';
 import { useAuthStore } from '../../src/stores/auth.store';
 

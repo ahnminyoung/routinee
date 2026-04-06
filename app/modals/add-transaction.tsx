@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/modals/add-transaction.tsx
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Alert,

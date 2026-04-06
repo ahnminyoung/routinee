@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(tabs)/todos/index.tsx
 import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, RefreshControl,

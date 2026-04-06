@@ -1,3 +1,4 @@
+// 테마 설정: src/theme/index.ts
 export { colors } from './colors';
 
 export const spacing = {

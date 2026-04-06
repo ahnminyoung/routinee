@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/billing.service.ts
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase, isSupabaseConfigured, supabaseConfigErrorMessage } from './supabase';

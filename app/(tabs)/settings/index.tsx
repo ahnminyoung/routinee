@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(tabs)/settings/index.tsx
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,11 +25,13 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (!user) return;
+    // 설정 화면 진입 시 최신 구독 상태를 먼저 동기화합니다.
     void fetchSubscription(user.id);
   }, [user, fetchSubscription]);
 
   const handleRefresh = async () => {
     if (!user) return;
+    // 당겨서 새로고침: 프로필/구독을 동시에 갱신
     setRefreshing(true);
     try {
       await Promise.all([
@@ -111,6 +114,18 @@ export default function SettingsScreen() {
             ? `활성화됨${subscription?.current_period_end ? ` · ${new Date(subscription.current_period_end).toLocaleDateString('ko-KR')}까지` : ''}`
             : '고급 리포트, 무제한 가계부 공유',
           onPress: () => router.push('/(tabs)/settings/subscription'),
+        },
+      ],
+    },
+    {
+      // 새로 추가한 오프라인 동기화/운영 로그 진단 진입점
+      title: '개발',
+      items: [
+        {
+          label: '동기화/운영 진단',
+          emoji: '🛠️',
+          description: '오프라인 큐, 충돌, 운영 로그 확인',
+          onPress: () => router.push('/(tabs)/settings/ops'),
         },
       ],
     },

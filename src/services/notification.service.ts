@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/notification.service.ts
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { Transaction } from '../types';

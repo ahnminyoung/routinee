@@ -1,3 +1,4 @@
+// 전역 상태 관리 로직: src/stores/auth.store.ts
 import { create } from 'zustand';
 import { User, Session } from '@supabase/supabase-js';
 import { UserProfile } from '../types';

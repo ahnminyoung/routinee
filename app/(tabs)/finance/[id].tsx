@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(tabs)/finance/[id].tsx
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Alert, RefreshControl,

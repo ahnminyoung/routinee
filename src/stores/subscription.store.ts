@@ -1,3 +1,4 @@
+// 전역 상태 관리 로직: src/stores/subscription.store.ts
 import { create } from 'zustand';
 import { UserSubscription } from '../types';
 import { buildFreeSubscription, subscriptionService } from '../services/subscription.service';

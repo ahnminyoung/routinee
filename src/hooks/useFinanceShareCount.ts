@@ -1,3 +1,4 @@
+// 커스텀 훅 로직: src/hooks/useFinanceShareCount.ts
 import { useCallback, useEffect, useState } from 'react';
 import { collabService } from '../services/collab.service';
 

@@ -1,3 +1,4 @@
+// 전역 상태 관리 로직: src/stores/category.store.ts
 import { create } from 'zustand';
 import { Category, CategoryType, CreateCategoryDto } from '../types';
 import { categoryService } from '../services/category.service';

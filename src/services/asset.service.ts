@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/asset.service.ts
 import { supabase } from './supabase';
 import { Asset, CreateAssetDto, UpdateAssetDto } from '../types';
 import { isMissingTableError, toUserFacingSupabaseError } from './supabase-error';

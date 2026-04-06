@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/modals/add-asset.tsx
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import AssetsScreen from '../(tabs)/finance/assets';

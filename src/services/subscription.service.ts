@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/subscription.service.ts
 import { supabase } from './supabase';
 import {
   CreateUserSubscriptionDto,

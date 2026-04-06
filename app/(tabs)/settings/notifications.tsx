@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(tabs)/settings/notifications.tsx
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Switch, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

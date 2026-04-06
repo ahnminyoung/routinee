@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/modals/add-todo.tsx
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
@@ -20,6 +21,7 @@ import { CreateTodoDto } from '../../src/types';
 import { today } from '../../src/utils/date';
 import { collabService, ConnectedMember } from '../../src/services/collab.service';
 import { todoParticipantService } from '../../src/services/todo-participant.service';
+import { offlineQueueService } from '../../src/services/offline-queue.service';
 
 const LABEL_THEMES = [
   { name: '에메랄드 그린', color: '#10B981' },
@@ -189,11 +191,22 @@ export default function AddTodoModal() {
       };
 
       const created = await addTodo(dto);
-      await todoParticipantService.replaceParticipants(
-        created.id,
-        user.id,
-        selectedParticipantIds
-      );
+      // 오프라인 임시 ID(local-*)는 서버에 아직 없는 레코드이므로 참여자 저장을 스킵합니다.
+      if (!created.id.startsWith('local-')) {
+        // 온라인 생성: 즉시 참여자 테이블을 서버에 반영합니다.
+        await todoParticipantService.replaceParticipants(
+          created.id,
+          user.id,
+          selectedParticipantIds
+        );
+      } else if (selectedParticipantIds.length > 0) {
+        // 오프라인 생성 건은 큐 메타에 참여자 정보를 저장해, 온라인 동기화 시 복원합니다.
+        await offlineQueueService.updateCreateMeta(user.id, 'todo', created.id, {
+          // 동기화 시 참여자 저장 API 호출을 위해 소유자/참여자 정보를 함께 보관합니다.
+          owner_id: user.id,
+          participant_ids: selectedParticipantIds,
+        });
+      }
       router.back();
     } catch (e: any) {
       Alert.alert('저장 실패', e?.message ?? '할일 저장에 실패했습니다.');

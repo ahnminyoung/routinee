@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/_layout.tsx
 import { useEffect } from 'react';
 import { Modal, View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
@@ -5,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Constants from 'expo-constants';
 import '../src/globals.css';
 import { useAuthStore } from '../src/stores/auth.store';
 import { useSubscriptionStore } from '../src/stores/subscription.store';
@@ -16,6 +18,8 @@ import {
   ensureNotificationPermissions,
   registerPushTokenForUser,
 } from '../src/services/notification.service';
+import { offlineSyncManager } from '../src/services/offline-sync-manager.service';
+import { opsLogService } from '../src/services/ops-log.service';
 
 // 글로벌 FAB 액션 선택 모달
 function AddActionModal() {
@@ -120,44 +124,60 @@ function AppContent() {
     reset: resetSubscription,
   } = useSubscriptionStore();
 
-  // 리얼타임 구독 (인증된 사용자에게만)
+  // 리얼타임 구독은 로그인 사용자 컨텍스트에서만 활성화합니다.
   useRealtime(user?.id);
 
   useEffect(() => {
     void initNotifications();
     void ensureNotificationPermissions();
+    // 운영 관측: 앱 시작 메타데이터를 로컬 이벤트 로그에 남깁니다.
+    void opsLogService.log('app.bootstrap', {
+      app_version: Constants.expoConfig?.version ?? 'unknown',
+      platform: Constants.platform?.ios ? 'ios' : Constants.platform?.android ? 'android' : 'unknown',
+      eas_project_id: (Constants.expoConfig as any)?.extra?.eas?.projectId ?? null,
+    });
 
+    // 앱 부팅 시점의 현재 세션으로 초기 상태를 맞춥니다.
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setSession(session);
         if (session?.user) {
+          // 로그인 상태: 프로필/구독/오프라인 동기화 매니저를 함께 준비합니다.
           void fetchProfile(session.user.id);
           void fetchSubscription(session.user.id);
+          void offlineSyncManager.start(session.user.id);
         } else {
+          // 로그아웃 상태: 구독/동기화 상태를 정리합니다.
           resetSubscription();
+          offlineSyncManager.stop();
         }
       })
       .catch((error) => {
         console.warn('[Auth] 세션 초기화 중 오류가 발생했습니다.', error);
       });
 
+    // 인증 상태 변경(로그인/로그아웃/세션 갱신)에 실시간 대응합니다.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         if (session?.user) {
           void fetchProfile(session.user.id);
           void fetchSubscription(session.user.id);
+          void offlineSyncManager.start(session.user.id);
         } else {
           resetSubscription();
+          offlineSyncManager.stop();
         }
       }
     );
 
+    // 컴포넌트 언마운트 시 인증 리스너를 해제합니다.
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     if (!user?.id) return;
+    // 로그인 사용자 기준으로 디바이스 푸시 토큰을 등록/갱신합니다.
     void registerPushTokenForUser(user.id);
   }, [user?.id]);
 

@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(tabs)/finance/_layout.tsx
 import { Stack } from 'expo-router';
 
 export default function FinanceLayout() {

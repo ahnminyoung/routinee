@@ -1,3 +1,4 @@
+// 전역 상태 관리 로직: src/stores/ui.store.ts
 import { create } from 'zustand';
 import { AppTheme } from '../types';
 

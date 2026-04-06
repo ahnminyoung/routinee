@@ -1,3 +1,4 @@
+// 공통 유틸리티: src/utils/constants.ts
 import { TodoPriority, AssetType, TransactionType, BudgetPeriod, CategoryType } from '../types';
 
 export const PRIORITY_LABELS: Record<TodoPriority, string> = {

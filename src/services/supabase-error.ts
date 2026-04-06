@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/supabase-error.ts
 type SupabaseErrorLike = {
   code?: string;
   message?: string;

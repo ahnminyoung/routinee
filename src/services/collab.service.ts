@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/collab.service.ts
 import { supabase } from './supabase';
 import { Connection } from '../types';
 import { toUserFacingSupabaseError } from './supabase-error';

@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(auth)/welcome.tsx
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -1,3 +1,4 @@
+// 테마 설정: src/theme/colors.ts
 export const colors = {
   // 브랜드 컬러
   primary: {

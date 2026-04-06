@@ -1,3 +1,4 @@
+// 커스텀 훅 로직: src/hooks/useRealtime.ts
 import { useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { useTodoStore } from '../stores/todo.store';

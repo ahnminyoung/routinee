@@ -1,3 +1,4 @@
+// 타입 정의: src/types/index.ts
 import {
   CategoryRow, CategoryInsert, CategoryUpdate,
   TodoRow, TodoInsert, TodoUpdate,

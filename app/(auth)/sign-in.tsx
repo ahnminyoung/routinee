@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(auth)/sign-in.tsx
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,

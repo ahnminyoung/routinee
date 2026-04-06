@@ -1,3 +1,4 @@
+// 커스텀 훅 로직: src/hooks/useAuth.ts
 import { useAuthStore } from '../stores/auth.store';
 
 /**

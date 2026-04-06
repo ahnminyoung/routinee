@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/finance.service.ts
 import { supabase } from './supabase';
 import { CreateTransactionDto, UpdateTransactionDto, Transaction, MonthlySummary, CategorySpending } from '../types';
 import {

@@ -1,3 +1,4 @@
+// API/도메인 서비스 로직: src/services/todo.service.ts
 import { supabase } from './supabase';
 import { CreateTodoDto, UpdateTodoDto, Todo } from '../types';
 import { isMissingTableError, toUserFacingSupabaseError } from './supabase-error';

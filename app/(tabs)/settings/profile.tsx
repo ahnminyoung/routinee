@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/(tabs)/settings/profile.tsx
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

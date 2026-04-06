@@ -1,3 +1,4 @@
+// 전역 상태 관리 로직: src/stores/asset.store.ts
 import { create } from 'zustand';
 import { Asset, CreateAssetDto, UpdateAssetDto } from '../types';
 import { assetService } from '../services/asset.service';

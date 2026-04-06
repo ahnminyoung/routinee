@@ -1,3 +1,4 @@
+// 앱 화면/라우팅 로직: app/+not-found.tsx
 import { Link, Stack } from 'expo-router';
 import { View, Text } from 'react-native';
 

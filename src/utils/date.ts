@@ -1,3 +1,4 @@
+// 공통 유틸리티: src/utils/date.ts
 import {
   format,
   parseISO,

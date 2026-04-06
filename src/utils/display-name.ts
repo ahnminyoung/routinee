@@ -1,3 +1,4 @@
+// 공통 유틸리티: src/utils/display-name.ts
 import { User } from '@supabase/supabase-js';
 import { UserProfile } from '../types';
 
