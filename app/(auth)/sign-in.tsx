@@ -42,6 +42,7 @@ export default function SignInScreen() {
   };
 
   const handleGoogleSignIn = async () => {
+    // OAuth 완료 후 세션 처리는 authService 내부에서 담당합니다.
     setIsLoading(true);
     try {
       await authService.signInWithGoogle();
