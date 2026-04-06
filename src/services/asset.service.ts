@@ -5,7 +5,22 @@ import { isMissingTableError, toUserFacingSupabaseError } from './supabase-error
 const db = supabase as any;
 
 export const assetService = {
-  fetchAll: async (userId: string): Promise<Asset[]> => {
+  fetchAll: async (_userId: string): Promise<Asset[]> => {
+    // user_id 필터 없음 - RLS가 본인 + 공유 자산 반환
+    const { data, error } = await db
+      .from('assets')
+      .select('*')
+      .is('deleted_at', null)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+    if (error) {
+      if (isMissingTableError(error)) return [];
+      throw toUserFacingSupabaseError(error, '자산');
+    }
+    return data ?? [];
+  },
+
+  fetchOwn: async (userId: string): Promise<Asset[]> => {
     const { data, error } = await db
       .from('assets')
       .select('*')

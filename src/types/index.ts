@@ -7,6 +7,7 @@ import {
   UserProfileRow, UserProfileUpdate,
   ConnectionRow, ConnectionInsert, ConnectionUpdate,
   TodoParticipantRow, TodoParticipantInsert, TodoParticipantUpdate,
+  UserSubscriptionRow, UserSubscriptionInsert, UserSubscriptionUpdate,
 } from './database.types';
 
 // DB Row 타입 별칭
@@ -18,6 +19,7 @@ export type Budget      = BudgetRow;
 export type UserProfile = UserProfileRow;
 export type Connection = ConnectionRow;
 export type TodoParticipant = TodoParticipantRow;
+export type UserSubscription = UserSubscriptionRow;
 
 // Insert/Update DTO 타입
 export type CreateTodoDto        = TodoInsert;
@@ -32,6 +34,8 @@ export type CreateConnectionDto  = ConnectionInsert;
 export type UpdateConnectionDto  = ConnectionUpdate;
 export type CreateTodoParticipantDto = TodoParticipantInsert;
 export type UpdateTodoParticipantDto = TodoParticipantUpdate;
+export type CreateUserSubscriptionDto = UserSubscriptionInsert;
+export type UpdateUserSubscriptionDto = UserSubscriptionUpdate;
 
 // 공통 유틸리티 타입
 export type TodoPriority    = Todo['priority'];

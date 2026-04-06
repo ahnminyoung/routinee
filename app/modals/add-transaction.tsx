@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useFinanceStore } from '../../src/stores/finance.store';
@@ -27,6 +27,7 @@ const KEYPAD = [
 ];
 
 export default function AddTransactionModal() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const { addTransaction } = useFinanceStore();
   const { getCategoriesByType } = useCategoryStore();
@@ -121,7 +122,7 @@ export default function AddTransactionModal() {
         {TYPES.map(({ type, label }) => (
           <TouchableOpacity
             key={type}
-            className={`flex-1 py-2.5 rounded-xl items-center ${txType === type ? 'bg-white dark:bg-surface-dark shadow' : ''}`}
+            className={`flex-1 py-2.5 rounded-xl items-center ${txType === type ? 'bg-white dark:bg-surface-dark' : ''}`}
             onPress={() => setTxType(type)}
           >
             <Text

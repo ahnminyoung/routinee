@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../../src/stores/auth.store';
+import { useSubscriptionStore } from '../../../src/stores/subscription.store';
 import { authService } from '../../../src/services/auth.service';
 import { getDisplayName } from '../../../src/utils/display-name';
 import { useFinanceShareCount } from '../../../src/hooks/useFinanceShareCount';
@@ -16,15 +17,24 @@ interface SettingsItem {
 
 export default function SettingsScreen() {
   const { user, profile, reset, fetchProfile } = useAuthStore();
+  const { isPro, subscription, fetchSubscription } = useSubscriptionStore();
   const { sharedCount } = useFinanceShareCount(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const displayName = getDisplayName(user, profile);
+
+  useEffect(() => {
+    if (!user) return;
+    void fetchSubscription(user.id);
+  }, [user, fetchSubscription]);
 
   const handleRefresh = async () => {
     if (!user) return;
     setRefreshing(true);
     try {
-      await fetchProfile(user.id);
+      await Promise.all([
+        fetchProfile(user.id),
+        fetchSubscription(user.id),
+      ]);
     } finally {
       setRefreshing(false);
     }
@@ -92,6 +102,19 @@ export default function SettingsScreen() {
       ],
     },
     {
+      title: '프리미엄',
+      items: [
+        {
+          label: 'Routinee Pro',
+          emoji: '✨',
+          description: isPro
+            ? `활성화됨${subscription?.current_period_end ? ` · ${new Date(subscription.current_period_end).toLocaleDateString('ko-KR')}까지` : ''}`
+            : '고급 리포트, 무제한 가계부 공유',
+          onPress: () => router.push('/(tabs)/settings/subscription'),
+        },
+      ],
+    },
+    {
       title: '기타',
       items: [
         {
@@ -120,7 +143,7 @@ export default function SettingsScreen() {
           {displayName}
         </Text>
         <Text className="text-white/80 text-sm mt-1">
-          Routinee 회원
+          {isPro ? 'Routinee Pro 회원' : 'Routinee 회원'}
         </Text>
       </View>
 

@@ -12,15 +12,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useAuthStore } from '../../../src/stores/auth.store';
+import { useSubscriptionStore } from '../../../src/stores/subscription.store';
 import {
   collabService,
   FinanceConnectionMember,
 } from '../../../src/services/collab.service';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const FREE_INVITE_LIMIT = 1;
 
 export default function FinanceSharingScreen() {
   const { user } = useAuthStore();
+  const { isPro, fetchSubscription } = useSubscriptionStore();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -44,6 +47,11 @@ export default function FinanceSharingScreen() {
     void loadMembers();
   }, [loadMembers]);
 
+  useEffect(() => {
+    if (!user) return;
+    void fetchSubscription(user.id);
+  }, [user, fetchSubscription]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await loadMembers();
@@ -52,6 +60,18 @@ export default function FinanceSharingScreen() {
 
   const handleInvite = async () => {
     if (!user) return;
+    if (!isPro && members.length >= FREE_INVITE_LIMIT) {
+      Alert.alert(
+        'Routinee Pro 기능',
+        '무료 플랜은 공유 멤버를 1명까지만 연결할 수 있어요. Pro로 업그레이드하면 무제한으로 연결할 수 있습니다.',
+        [
+          { text: '닫기', style: 'cancel' },
+          { text: 'Pro 보기', onPress: () => router.push('/(tabs)/settings/subscription') },
+        ]
+      );
+      return;
+    }
+
     const normalized = inviteEmail.trim().toLowerCase();
     if (!normalized) {
       Alert.alert('입력 오류', '초대할 이메일을 입력해주세요.');
@@ -97,6 +117,7 @@ export default function FinanceSharingScreen() {
     [members]
   );
   const sharedCount = members.filter((m) => m.share_finance).length;
+  const inviteLimited = !isPro && members.length >= FREE_INVITE_LIMIT;
 
   return (
     <SafeAreaView className="flex-1 bg-surface-secondary dark:bg-black">
@@ -139,8 +160,8 @@ export default function FinanceSharingScreen() {
               keyboardType="email-address"
             />
             <TouchableOpacity
-              className={`ml-2 px-4 py-2 rounded-xl ${inviting ? 'bg-primary/60' : 'bg-primary'}`}
-              disabled={inviting}
+              className={`ml-2 px-4 py-2 rounded-xl ${inviting || inviteLimited ? 'bg-primary/40' : 'bg-primary'}`}
+              disabled={inviting || inviteLimited}
               onPress={handleInvite}
             >
               <Text className="text-white font-semibold text-sm">
@@ -148,6 +169,11 @@ export default function FinanceSharingScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+          {inviteLimited && (
+            <Text className="text-xs text-primary mt-2">
+              무료 플랜은 1명까지 연결 가능해요. Pro에서 무제한으로 확장됩니다.
+            </Text>
+          )}
         </View>
 
         <ConnectionSection

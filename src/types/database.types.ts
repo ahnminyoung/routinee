@@ -263,6 +263,37 @@ export type TodoParticipantInsert = {
 };
 export type TodoParticipantUpdate = Partial<TodoParticipantInsert>;
 
+// UserSubscription Row
+export interface UserSubscriptionRow {
+  id: string;
+  user_id: string;
+  plan: 'free' | 'pro';
+  status: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing';
+  provider: 'manual' | 'stripe' | 'app_store' | 'play_store' | 'revenuecat';
+  provider_customer_id: string | null;
+  provider_subscription_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  metadata: Json;
+  created_at: string;
+  updated_at: string;
+}
+export type UserSubscriptionInsert = {
+  user_id: string;
+  id?: string;
+  plan?: 'free' | 'pro';
+  status?: 'active' | 'inactive' | 'canceled' | 'past_due' | 'trialing';
+  provider?: 'manual' | 'stripe' | 'app_store' | 'play_store' | 'revenuecat';
+  provider_customer_id?: string | null;
+  provider_subscription_id?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean;
+  metadata?: Json;
+};
+export type UserSubscriptionUpdate = Partial<UserSubscriptionInsert>;
+
 // Supabase Database type
 export interface Database {
   public: {
@@ -313,6 +344,12 @@ export interface Database {
         Row: TodoParticipantRow;
         Insert: TodoParticipantInsert;
         Update: TodoParticipantUpdate;
+        Relationships: [];
+      };
+      user_subscriptions: {
+        Row: UserSubscriptionRow;
+        Insert: UserSubscriptionInsert;
+        Update: UserSubscriptionUpdate;
         Relationships: [];
       };
     };

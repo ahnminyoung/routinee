@@ -9,6 +9,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="budgets" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="finance-sharing" />
+      <Stack.Screen name="subscription" />
     </Stack>
   );
 }

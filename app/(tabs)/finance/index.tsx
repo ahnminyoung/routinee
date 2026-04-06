@@ -17,7 +17,7 @@ import { useFinanceShareCount } from '../../../src/hooks/useFinanceShareCount';
 export default function FinanceScreen() {
   const { user } = useAuthStore();
   const { getTransactionsForMonth, getSummaryForMonth, fetchMonth, deleteTransaction } = useFinanceStore();
-  const { assets, fetchAssets, totalBalance } = useAssetStore();
+  const { assets, fetchAssets, totalBalance, ownBalance } = useAssetStore();
   const { sharedCount, isShared } = useFinanceShareCount(user?.id);
   const [refreshing, setRefreshing] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -120,6 +120,24 @@ export default function FinanceScreen() {
         <TouchableOpacity onPress={() => setCurrentDate(addMonths(currentDate, 1))}>
           <Text className="text-text-primary dark:text-text-dark-primary text-xl">›</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* 자산 요약 */}
+      <View className="mx-5 mb-3 bg-primary rounded-2xl p-4">
+        <View className="flex-row items-end justify-between">
+          <View className="flex-1">
+            <Text className="text-white/80 text-xs">총 자산 (공유 포함)</Text>
+            <Text className="text-white text-xl font-bold mt-1">
+              {formatCurrency(totalBalance)}
+            </Text>
+          </View>
+          <View className="items-end ml-4">
+            <Text className="text-white/70 text-xs">개인 자산</Text>
+            <Text className="text-white text-base font-semibold mt-1">
+              {formatCurrency(ownBalance)}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* 월별 요약 카드 */}

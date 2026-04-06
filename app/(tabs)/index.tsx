@@ -16,7 +16,7 @@ export default function DashboardScreen() {
   const { user, profile } = useAuthStore();
   const { getTodayTodos, fetchTodosForDate, toggleComplete } = useTodoStore();
   const { getTransactionsForDate, getSummaryForMonth, fetchMonth } = useFinanceStore();
-  const { assets, totalBalance, fetchAssets } = useAssetStore();
+  const { totalBalance, ownBalance, fetchAssets } = useAssetStore();
   const { sharedCount, isShared } = useFinanceShareCount(user?.id);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -90,10 +90,20 @@ export default function DashboardScreen() {
 
         {/* 총 자산 카드 */}
         <View className="mx-5 mt-4 bg-primary rounded-3xl p-5">
-          <Text className="text-white/80 text-sm mb-1">총 자산</Text>
-          <Text className="text-white text-3xl font-bold">
-            {formatCurrency(totalBalance)}
-          </Text>
+          <View className="flex-row items-end justify-between">
+            <View className="flex-1">
+              <Text className="text-white/80 text-sm mb-1">총 자산 (공유 포함)</Text>
+              <Text className="text-white text-3xl font-bold">
+                {formatCurrency(totalBalance)}
+              </Text>
+            </View>
+            <View className="items-end ml-4">
+              <Text className="text-white/70 text-xs mb-1">개인 자산</Text>
+              <Text className="text-white text-lg font-semibold">
+                {formatCurrency(ownBalance)}
+              </Text>
+            </View>
+          </View>
           <View className="flex-row mt-4 gap-x-4">
             <View>
               <Text className="text-white/70 text-xs">이번 달 수입</Text>

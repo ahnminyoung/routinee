@@ -15,7 +15,7 @@ const ASSET_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#E
 
 export default function AssetsScreen() {
   const { user } = useAuthStore();
-  const { assets, fetchAssets, addAsset, deleteAsset, totalBalance } = useAssetStore();
+  const { assets, fetchAssets, addAsset, deleteAsset, totalBalance, ownBalance } = useAssetStore();
   const [showModal, setShowModal] = useState(false);
   const [newName, setNewName]     = useState('');
   const [newType, setNewType]     = useState<AssetType>('bank_account');
@@ -107,10 +107,20 @@ export default function AssetsScreen() {
 
       {/* 총 자산 */}
       <View className="mx-5 mb-4 bg-primary rounded-2xl p-4">
-        <Text className="text-white/80 text-sm">총 자산</Text>
-        <Text className="text-white text-2xl font-bold mt-1">
-          {formatCurrency(totalBalance)}
-        </Text>
+        <View className="flex-row items-end justify-between">
+          <View className="flex-1">
+            <Text className="text-white/80 text-sm">총 자산 (공유 포함)</Text>
+            <Text className="text-white text-2xl font-bold mt-1">
+              {formatCurrency(totalBalance)}
+            </Text>
+          </View>
+          <View className="items-end ml-4">
+            <Text className="text-white/70 text-xs">개인 자산</Text>
+            <Text className="text-white text-lg font-semibold mt-1">
+              {formatCurrency(ownBalance)}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView

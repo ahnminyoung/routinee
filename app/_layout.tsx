@@ -7,6 +7,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import '../src/globals.css';
 import { useAuthStore } from '../src/stores/auth.store';
+import { useSubscriptionStore } from '../src/stores/subscription.store';
 import { useUIStore } from '../src/stores/ui.store';
 import { supabase } from '../src/services/supabase';
 import { useRealtime } from '../src/hooks/useRealtime';
@@ -114,6 +115,10 @@ function InAppNoticeOverlay() {
 
 function AppContent() {
   const { setSession, fetchProfile, user } = useAuthStore();
+  const {
+    fetchSubscription,
+    reset: resetSubscription,
+  } = useSubscriptionStore();
 
   // 리얼타임 구독 (인증된 사용자에게만)
   useRealtime(user?.id);
@@ -127,6 +132,9 @@ function AppContent() {
         setSession(session);
         if (session?.user) {
           void fetchProfile(session.user.id);
+          void fetchSubscription(session.user.id);
+        } else {
+          resetSubscription();
         }
       })
       .catch((error) => {
@@ -138,6 +146,9 @@ function AppContent() {
         setSession(session);
         if (session?.user) {
           void fetchProfile(session.user.id);
+          void fetchSubscription(session.user.id);
+        } else {
+          resetSubscription();
         }
       }
     );
