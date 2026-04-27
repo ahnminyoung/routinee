@@ -62,7 +62,7 @@ export default function SignUpScreen() {
       Alert.alert(
         '회원가입 완료',
         '회원가입이 완료되어 바로 로그인되었습니다.',
-        [{ text: '확인', onPress: () => router.replace('/(tabs)') }]
+        [{ text: '확인', onPress: () => router.replace('/(tabs)/calendar') }]
       );
     } catch (e: any) {
       const message = e?.message ?? '회원가입에 실패했습니다.';

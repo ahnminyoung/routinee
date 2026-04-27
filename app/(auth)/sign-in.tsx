@@ -34,7 +34,7 @@ export default function SignInScreen() {
     setIsLoading(true);
     try {
       await authService.signInWithEmail(normalizedEmail, password);
-      router.replace('/(tabs)');
+      router.replace('/(tabs)/calendar');
     } catch (e: any) {
       Alert.alert('로그인 실패', e.message ?? '로그인에 실패했습니다. 다시 시도해주세요.');
     } finally {

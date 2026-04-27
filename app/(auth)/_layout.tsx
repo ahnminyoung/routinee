@@ -7,7 +7,7 @@ export default function AuthLayout() {
 
   // 이미 로그인되어 있으면 메인 화면으로 이동
   if (session) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/(tabs)/calendar" />;
   }
 
   return (

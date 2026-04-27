@@ -1,12 +1,11 @@
 // 앱 화면/라우팅 로직: app/(tabs)/calendar.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, RefreshControl, Alert,
-  Animated, PanResponder,
+  View, Text, TouchableOpacity, ScrollView, Alert,
+  Animated, PanResponder, Modal, StyleSheet,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useTodoStore } from '../../src/stores/todo.store';
 import { useFinanceStore } from '../../src/stores/finance.store';
@@ -19,6 +18,7 @@ import { DAY_NAMES, PRIORITY_COLORS } from '../../src/utils/constants';
 import { format } from 'date-fns';
 import { Todo, Transaction } from '../../src/types';
 import { useFinanceShareCount } from '../../src/hooks/useFinanceShareCount';
+import { useAssetStore } from '../../src/stores/asset.store';
 
 type DayRect = { x: number; y: number; width: number; height: number };
 type CalendarViewMode = 'todo' | 'finance';
@@ -31,6 +31,7 @@ const toAlphaColor = (hex: string, alphaHex: string) => {
 
 export default function CalendarScreen() {
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const {
     fetchTodosForRange,
     getTodosForDate,
@@ -38,15 +39,19 @@ export default function CalendarScreen() {
     toggleComplete,
     setSelectedDate: setTodoSelectedDate,
   } = useTodoStore();
-  const { fetchMonth, getTransactionsForDate } = useFinanceStore();
+  const { fetchMonth, getTransactionsForDate, getSummaryForMonth } = useFinanceStore();
+  const { totalBalance, fetchAssets } = useAssetStore();
   const { sharedCount, isShared } = useFinanceShareCount(user?.id);
-  const { height: windowHeight } = useWindowDimensions();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [sheetDate, setSheetDate] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('todo');
-  const [refreshing, setRefreshing] = useState(false);
-  const [isDraggingTodo, setIsDraggingTodo] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const [fabOpen, setFabOpen] = useState(false);
+
+  const toggleFab = useCallback(() => {
+    setFabOpen((prev) => !prev);
+  }, []);
 
   const dayRefs = useRef<Record<string, any>>({});
   const dayRects = useRef<Record<string, DayRect>>({});
@@ -112,21 +117,28 @@ export default function CalendarScreen() {
 
   const handlePressMoreRecords = useCallback((date: string) => {
     setSelectedDate(date);
-    setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 80);
-  }, []);
+    openSheet(date);
+  }, [openSheet]);
 
-  const handlePressAddForSelectedDate = useCallback(() => {
-    if (viewMode === 'todo') {
-      if (selectedDate) {
-        setTodoSelectedDate(selectedDate);
-      }
-      router.push('/modals/add-todo');
-      return;
+  const handleDayPress = useCallback((dateStr: string) => {
+    if (dateStr === selectedDate) {
+      openSheet(dateStr);
+    } else {
+      setSelectedDate(dateStr);
     }
+  }, [selectedDate, openSheet]);
+
+  const handleAddTodo = useCallback(() => {
+    toggleFab();
+    if (selectedDate) setTodoSelectedDate(selectedDate);
+    router.push('/modals/add-todo');
+  }, [selectedDate, setTodoSelectedDate, toggleFab]);
+
+  const handleAddTransaction = useCallback(() => {
+    if (selectedDate) setTodoSelectedDate(selectedDate);
+    toggleFab();
     router.push('/modals/add-transaction');
-  }, [viewMode, selectedDate, setTodoSelectedDate]);
+  }, [selectedDate, setTodoSelectedDate, toggleFab]);
 
   const loadData = useCallback(async (force = false) => {
     if (!user) return;
@@ -134,6 +146,7 @@ export default function CalendarScreen() {
       await Promise.all([
         fetchTodosForRange(user.id, visibleStartDate, visibleEndDate, force),
         fetchMonth(user.id, year, month, force),
+        fetchAssets(user.id),
       ]);
     } catch (error) {
       console.warn('[CalendarScreen] 데이터 조회에 실패했습니다.', error);
@@ -148,6 +161,7 @@ export default function CalendarScreen() {
     month,
     fetchTodosForRange,
     fetchMonth,
+    fetchAssets,
     refreshDayRects,
   ]);
 
@@ -160,12 +174,6 @@ export default function CalendarScreen() {
     void loadData(true);
   }, [user, sharedCount, loadData]);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadData(true);
-    setRefreshing(false);
-  };
-
   const todayStr = today();
   const selectedTodos = selectedDate ? getTodosForDate(selectedDate) : [];
   const selectedTransactions = selectedDate ? getTransactionsForDate(selectedDate) : [];
@@ -175,37 +183,111 @@ export default function CalendarScreen() {
   const dayExpense = selectedTransactions
     .filter((t) => t.type === 'expense')
     .reduce((s, t) => s + t.amount, 0);
-  const dayCellHeight = Math.max(96, Math.floor((windowHeight - 210) / 6));
+  const tabBarHeight = 80;
+  const fabBottomOffset = tabBarHeight + insets.bottom + 18;
+
+  const SHEET_HEIGHT = 420;
+  const KO_DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  const sheetAnim = useRef(new Animated.Value(0)).current;
+
+  const openSheet = useCallback((dateStr: string) => {
+    setSheetDate(dateStr);
+    setSheetVisible(true);
+    Animated.spring(sheetAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      damping: 25,
+      stiffness: 200,
+    }).start();
+  }, [sheetAnim]);
+
+  const closeSheet = useCallback(() => {
+    Animated.timing(sheetAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+    // 애니메이션 콜백 대신 setTimeout으로 보장 — 콜백이 인터럽트되어도 Modal 반드시 닫힘
+    setTimeout(() => {
+      setSheetVisible(false);
+      setSheetDate(null);
+    }, 220);
+  }, [sheetAnim]);
+
+  const sheetTranslateY = sheetAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [SHEET_HEIGHT, 0],
+  });
+
+  const handleSheetAdd = useCallback(() => {
+    if (sheetDate) setTodoSelectedDate(sheetDate);
+    router.push(viewMode === 'todo' ? '/modals/add-todo' : '/modals/add-transaction');
+  }, [sheetDate, viewMode, setTodoSelectedDate]);
+
+  const sheetTodos = sheetDate ? getTodosForDate(sheetDate) : [];
+  const sheetTransactions = sheetDate ? getTransactionsForDate(sheetDate) : [];
+  const sheetIncome = sheetTransactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const sheetExpense = sheetTransactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  const monthlySummary = getSummaryForMonth(year, month);
+  const todayTodos = getTodosForDate(todayStr);
+  const todayCompleted = todayTodos.filter((t) => t.status === 'completed').length;
+  const todayTotal = todayTodos.length;
+  const completionRate = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-surface-secondary dark:bg-black">
-      <ScrollView
-        ref={scrollRef}
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={!isDraggingTodo}
-        refreshControl={
-          isDraggingTodo
-            ? undefined
-            : <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
-        <View className="px-5 pt-4 pb-2 flex-row items-center justify-between">
-          <Text className="text-2xl font-bold text-text-primary dark:text-text-dark-primary">
-            캘린더
-          </Text>
+      <View className="flex-1">
+        {/* 월 헤더: 월 탐색 + 재정 요약 */}
+        <View className="flex-row items-center justify-between px-5 pt-4 pb-2">
+          <TouchableOpacity onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+            <Text className="text-2xl text-text-primary dark:text-text-dark-primary px-1">‹</Text>
+          </TouchableOpacity>
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-text-primary dark:text-text-dark-primary">
+              {formatMonth(currentMonth)} ▾
+            </Text>
+            <View className="flex-row gap-x-3 mt-0.5">
+              <Text style={{ fontSize: 11 }} className="text-income font-semibold">
+                +{formatCurrency(monthlySummary.total_income)}
+              </Text>
+              <Text style={{ fontSize: 11 }} className="text-expense font-semibold">
+                -{formatCurrency(monthlySummary.total_expense)}
+              </Text>
+              <Text style={{ fontSize: 11 }} className="text-text-secondary">
+                자산 {formatCurrency(totalBalance)}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <Text className="text-2xl text-text-primary dark:text-text-dark-primary px-1">›</Text>
+          </TouchableOpacity>
         </View>
 
-        <View className="flex-row items-center justify-between px-5 py-2">
-          <TouchableOpacity onPress={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-            <Text className="text-2xl text-text-primary dark:text-text-dark-primary">‹</Text>
-          </TouchableOpacity>
-          <Text className="text-lg font-bold text-text-primary dark:text-text-dark-primary">
-            {formatMonth(currentMonth)}
-          </Text>
-          <TouchableOpacity onPress={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-            <Text className="text-2xl text-text-primary dark:text-text-dark-primary">›</Text>
-          </TouchableOpacity>
+        {/* 오늘 할일 완료 게이지 */}
+        <View className="mx-5 mb-2 bg-white dark:bg-surface-dark rounded-2xl px-4 py-2">
+          <View className="flex-row items-center justify-between mb-1.5">
+            <Text className="text-sm font-semibold text-text-primary dark:text-text-dark-primary">
+              오늘 할일
+            </Text>
+            <Text className="text-xs text-text-secondary dark:text-text-dark-secondary">
+              {todayTotal > 0 ? `${todayCompleted}/${todayTotal} 완료 · ${completionRate}%` : '할일 없음'}
+            </Text>
+          </View>
+          <View className="h-2 bg-border dark:bg-border-dark rounded-full overflow-hidden">
+            <View
+              className="h-2 rounded-full"
+              style={{
+                width: `${completionRate}%`,
+                backgroundColor: completionRate === 100 ? '#10B981' : '#6366F1',
+              }}
+            />
+          </View>
+          {completionRate === 100 && todayTotal > 0 && (
+            <Text className="text-xs text-income font-semibold mt-1 text-center">
+              🎉 오늘 할일 모두 완료!
+            </Text>
+          )}
         </View>
 
         <View className="px-5 mb-2">
@@ -249,9 +331,10 @@ export default function CalendarScreen() {
           ))}
         </View>
 
-        <View className="px-5 mb-4" onLayout={refreshDayRects}>
+        {/* 캘린더 그리드: flex-1로 남은 공간을 모두 채움 */}
+        <View className="flex-1 px-5" onLayout={refreshDayRects}>
           {Array.from({ length: Math.ceil(calendarDays.length / 7) }, (_, weekIdx) => (
-            <View key={weekIdx} className="flex-row">
+            <View key={weekIdx} className="flex-1 flex-row">
               {calendarDays.slice(weekIdx * 7, weekIdx * 7 + 7).map((day) => {
                 const dateStr = toDateString(day);
                 const inCurrentMonth = isSameMonth(day, currentMonth);
@@ -272,11 +355,10 @@ export default function CalendarScreen() {
                     <TouchableOpacity
                       ref={(node) => { dayRefs.current[dateStr] = node; }}
                       onLayout={() => updateDayRect(dateStr)}
-                      className={`px-1 py-1.5 ${
+                      className={`flex-1 px-1 py-1.5 ${
                         isSelected ? 'bg-primary/15' : ''
                       }`}
-                      style={{ minHeight: dayCellHeight }}
-                      onPress={() => setSelectedDate(dateStr)}
+                      onPress={() => handleDayPress(dateStr)}
                       activeOpacity={0.9}
                     >
                       <Text
@@ -305,7 +387,6 @@ export default function CalendarScreen() {
                                   onDrop={handleDropTodo}
                                   onDragStateChange={(dragging) => {
                                     if (dragging) refreshDayRects();
-                                    setIsDraggingTodo(dragging);
                                   }}
                                 />
                               );
@@ -351,117 +432,185 @@ export default function CalendarScreen() {
           ))}
         </View>
 
-        {selectedDate ? (
-          <View className="px-5">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-lg font-bold text-text-primary dark:text-text-dark-primary">
-                {formatDisplayDate(selectedDate)}
+      </View>
+
+      {/* 날짜 상세 바텀시트: Modal로 레이아웃 완전 분리 */}
+      <Modal
+        visible={sheetVisible}
+        transparent
+        animationType="none"
+        onRequestClose={closeSheet}
+        statusBarTranslucent
+      >
+        {/* 백드롭 */}
+        <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.5)', opacity: sheetAnim }]}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={closeSheet} />
+        </Animated.View>
+
+        {/* 시트 */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: SHEET_HEIGHT,
+            backgroundColor: '#111111',
+            borderTopLeftRadius: 22,
+            borderTopRightRadius: 22,
+            transform: [{ translateY: sheetTranslateY }],
+            overflow: 'hidden',
+          }}
+        >
+          {/* 드래그 핸들 */}
+          <View style={{ alignItems: 'center', paddingTop: 10, paddingBottom: 4 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(160,160,160,0.4)' }} />
+          </View>
+
+          {/* 헤더: 날짜 + 추가 버튼 */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: 6, paddingBottom: 14 }}>
+            <View>
+              <Text style={{ fontSize: 22, fontWeight: '700', color: '#ffffff', lineHeight: 28 }}>
+                {sheetDate ? `${format(new Date(sheetDate), 'M월 d일')} ${KO_DAYS[new Date(sheetDate).getDay()]}` : ''}
               </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleSheetAdd}
+              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 22, lineHeight: 26, fontWeight: '300' }}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 내용 */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 + insets.bottom }}
+            showsVerticalScrollIndicator={false}
+          >
+            {viewMode === 'finance' && (sheetIncome > 0 || sheetExpense > 0) && (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                {sheetIncome > 0 && (
+                  <View style={{ flex: 1, backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: 16, padding: 12 }}>
+                    <Text style={{ fontSize: 11, color: '#10B981', marginBottom: 4 }}>수입</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#10B981' }}>+{formatCurrency(sheetIncome)}</Text>
+                  </View>
+                )}
+                {sheetExpense > 0 && (
+                  <View style={{ flex: 1, backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: 16, padding: 12 }}>
+                    <Text style={{ fontSize: 11, color: '#EF4444', marginBottom: 4 }}>지출</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#EF4444' }}>-{formatCurrency(sheetExpense)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {viewMode === 'todo' && sheetTodos.length > 0 && (
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+                {sheetTodos.map((todo, i) => (
+                  <DraggableTodoRow
+                    key={todo.id}
+                    todo={todo}
+                    fromDate={sheetDate!}
+                    color={todo.label_color || PRIORITY_COLORS[todo.priority ?? 'medium']}
+                    isLast={i === sheetTodos.length - 1}
+                    onToggle={() => void handleToggleTodo(todo.id)}
+                    onDrop={handleDropTodo}
+                    onDragStateChange={(dragging) => { if (dragging) refreshDayRects(); }}
+                  />
+                ))}
+              </View>
+            )}
+
+            {viewMode === 'finance' && sheetTransactions.length > 0 && (
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+                {sheetTransactions.map((tx, i) => {
+                  const isIncome = tx.type === 'income';
+                  const isExpense = tx.type === 'expense';
+                  return (
+                    <View
+                      key={tx.id}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center',
+                        paddingHorizontal: 16, paddingVertical: 13,
+                        borderBottomWidth: i < sheetTransactions.length - 1 ? 1 : 0,
+                        borderBottomColor: 'rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <Text style={{ flex: 1, fontSize: 14, color: '#ffffff' }} numberOfLines={1}>
+                        {tx.description}
+                      </Text>
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: isIncome ? '#10B981' : isExpense ? '#EF4444' : '#F59E0B' }}>
+                        {isIncome ? '+' : isExpense ? '-' : ''}{formatCurrency(tx.amount)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {viewMode === 'todo' && sheetTodos.length === 0 && (
+              <View style={{ alignItems: 'center', paddingTop: 90 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>일정이 없습니다</Text>
+              </View>
+            )}
+
+            {viewMode === 'finance' && sheetTransactions.length === 0 && sheetIncome === 0 && sheetExpense === 0 && (
+              <View style={{ alignItems: 'center', paddingTop: 90 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 16 }}>일정이 없습니다</Text>
+              </View>
+            )}
+          </ScrollView>
+        </Animated.View>
+      </Modal>
+
+      <View pointerEvents="box-none" style={StyleSheet.absoluteFillObject}>
+        {/* FAB 메뉴 Modal */}
+        <Modal visible={fabOpen} transparent animationType="fade" onRequestClose={toggleFab}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={toggleFab}>
+            <View style={[fabStyles.menuContainer, { bottom: fabBottomOffset }]}>
               <TouchableOpacity
-                className="w-8 h-8 rounded-full bg-primary items-center justify-center"
-                onPress={handlePressAddForSelectedDate}
+                onPress={handleAddTransaction}
+                activeOpacity={0.85}
+                style={fabStyles.menuRow}
               >
-                <Text className="text-white text-xl leading-6">+</Text>
+                <View style={fabStyles.menuLabel}>
+                  <Text style={fabStyles.menuLabelText}>가계부 추가</Text>
+                </View>
+                <View style={fabStyles.menuIcon}>
+                  <Text style={fabStyles.menuIconGlyph}>₩</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleAddTodo}
+                activeOpacity={0.85}
+                style={fabStyles.menuRow}
+              >
+                <View style={fabStyles.menuLabel}>
+                  <Text style={fabStyles.menuLabelText}>일정 추가</Text>
+                </View>
+                <View style={fabStyles.menuIcon}>
+                  <Text style={fabStyles.menuIconGlyph}>+</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={toggleFab} activeOpacity={0.85} style={fabStyles.closeFab}>
+                <Text style={fabStyles.closeFabText}>✕</Text>
               </TouchableOpacity>
             </View>
+          </TouchableOpacity>
+        </Modal>
 
-            {viewMode === 'finance' && (dayIncome > 0 || dayExpense > 0) && (
-              <View className="flex-row gap-x-3 mb-3">
-                {dayIncome > 0 && (
-                  <View className="flex-1 bg-income/10 rounded-2xl p-3">
-                    <Text className="text-xs text-income mb-1">수입</Text>
-                    <Text className="text-sm font-bold text-income">+{formatCurrency(dayIncome)}</Text>
-                  </View>
-                )}
-                {dayExpense > 0 && (
-                  <View className="flex-1 bg-expense/10 rounded-2xl p-3">
-                    <Text className="text-xs text-expense mb-1">지출</Text>
-                    <Text className="text-sm font-bold text-expense">-{formatCurrency(dayExpense)}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {viewMode === 'todo' && selectedTodos.length > 0 && (
-              <View className="mb-3">
-                <Text className="text-sm font-semibold text-text-secondary mb-2">할일</Text>
-                <Text className="text-xs text-text-secondary mb-2">
-                  왼쪽 체크는 완료 처리, 오른쪽 ⋮⋮는 날짜 이동 드래그입니다.
-                </Text>
-                <View className="bg-white dark:bg-surface-dark rounded-2xl overflow-hidden">
-                  {selectedTodos.map((todo, i) => (
-                    <DraggableTodoRow
-                      key={todo.id}
-                      todo={todo}
-                      fromDate={selectedDate}
-                      isLast={i === selectedTodos.length - 1}
-                      onToggle={() => void handleToggleTodo(todo.id)}
-                      onDrop={handleDropTodo}
-                      onDragStateChange={(dragging) => {
-                        if (dragging) refreshDayRects();
-                        setIsDraggingTodo(dragging);
-                      }}
-                    />
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {viewMode === 'finance' && selectedTransactions.length > 0 && (
-              <View className="mb-3">
-                <Text className="text-sm font-semibold text-text-secondary mb-2">거래</Text>
-                <View className="bg-white dark:bg-surface-dark rounded-2xl overflow-hidden">
-                  {selectedTransactions.map((tx, i) => {
-                    const isIncome = tx.type === 'income';
-                    const isExpense = tx.type === 'expense';
-                    return (
-                      <View
-                        key={tx.id}
-                        className={`flex-row items-center px-4 py-3 ${
-                          i < selectedTransactions.length - 1 ? 'border-b border-border dark:border-border-dark' : ''
-                        }`}
-                      >
-                        <Text className="flex-1 text-sm text-text-primary dark:text-text-dark-primary" numberOfLines={1}>
-                          {tx.description}
-                        </Text>
-                        <Text
-                          className="text-sm font-semibold"
-                          style={{ color: isIncome ? '#10B981' : isExpense ? '#EF4444' : '#F59E0B' }}
-                        >
-                          {isIncome ? '+' : isExpense ? '-' : ''}
-                          {formatCurrency(tx.amount)}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {viewMode === 'todo' && selectedTodos.length === 0 && (
-              <View className="items-center py-6">
-                <Text className="text-3xl mb-2">📭</Text>
-                <Text className="text-text-secondary text-sm">이 날의 할일이 없습니다</Text>
-              </View>
-            )}
-
-            {viewMode === 'finance' && selectedTransactions.length === 0 && (
-              <View className="items-center py-6">
-                <Text className="text-3xl mb-2">📭</Text>
-                <Text className="text-text-secondary text-sm">이 날의 거래 내역이 없습니다</Text>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View className="px-5 pb-2">
-            <Text className="text-center text-text-secondary text-sm">
-              날짜를 선택하면 해당 날짜의 {viewMode === 'todo' ? '할일' : '거래'}이(가) 표시됩니다.
-            </Text>
-          </View>
-        )}
-
-        <View className={selectedDate ? 'h-8' : 'h-2'} />
-      </ScrollView>
+        {/* 메인 FAB: 탭바 버튼이 아니라 캘린더 화면 위 오버레이 */}
+        <TouchableOpacity
+          onPress={toggleFab}
+          activeOpacity={0.85}
+          style={[fabStyles.mainFab, { bottom: fabBottomOffset }]}
+        >
+          <Text style={fabStyles.mainFabText}>+</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -585,6 +734,7 @@ function DraggableTodoChip({
 function DraggableTodoRow({
   todo,
   fromDate,
+  color,
   isLast,
   onToggle,
   onDrop,
@@ -592,6 +742,7 @@ function DraggableTodoRow({
 }: {
   todo: Todo;
   fromDate: string;
+  color?: string;
   isLast: boolean;
   onToggle: () => void;
   onDrop: (todoId: string, fromDate: string, pageX: number, pageY: number) => Promise<void> | void;
@@ -638,42 +789,149 @@ function DraggableTodoRow({
     })
   ).current;
 
+  const isCompleted = todo.status === 'completed';
+  const textColor = color ?? '#ffffff';
+
   return (
     <Animated.View
-      className={`flex-row items-center px-4 py-3 ${
-        !isLast ? 'border-b border-border dark:border-border-dark' : ''
-      }`}
       style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 13,
+        borderBottomWidth: !isLast ? 1 : 0,
+        borderBottomColor: 'rgba(255,255,255,0.08)',
         transform: pan.getTranslateTransform(),
         zIndex: isDragging ? 40 : 1,
         elevation: isDragging ? 12 : 0,
       }}
     >
+      {/* 완료 체크 버튼 */}
       <TouchableOpacity
         onPress={onToggle}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
-          todo.status === 'completed' ? 'bg-primary border-primary' : 'border-border'
-        }`}
+        style={{
+          width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+          marginRight: 12, alignItems: 'center', justifyContent: 'center',
+          backgroundColor: isCompleted ? textColor : 'transparent',
+          borderColor: isCompleted ? textColor : 'rgba(255,255,255,0.35)',
+        }}
       >
-        {todo.status === 'completed' && <Text className="text-white text-xs">✓</Text>}
+        {isCompleted && <Text style={{ color: '#fff', fontSize: 10, lineHeight: 12 }}>✓</Text>}
       </TouchableOpacity>
+
+      {/* 할일 제목 */}
       <Text
-        className={`flex-1 text-sm ${
-          todo.status === 'completed'
-            ? 'text-text-secondary line-through'
-            : 'text-text-primary dark:text-text-dark-primary'
-        }`}
         numberOfLines={1}
+        style={{
+          flex: 1,
+          fontSize: 14,
+          color: isCompleted ? 'rgba(255,255,255,0.35)' : textColor,
+          textDecorationLine: isCompleted ? 'line-through' : 'none',
+        }}
       >
         {todo.title}
       </Text>
+
+      {/* 색상 점 */}
+      <View
+        style={{
+          width: 8, height: 8, borderRadius: 4,
+          backgroundColor: textColor,
+          marginHorizontal: 8,
+          opacity: isCompleted ? 0.4 : 1,
+        }}
+      />
+
+      {/* 드래그 핸들 */}
       <View
         {...panResponder.panHandlers}
-        className="ml-3 px-3 py-2 rounded-lg bg-surface-secondary dark:bg-surface-dark-secondary"
+        style={{
+          paddingHorizontal: 10, paddingVertical: 8,
+          borderRadius: 8,
+          backgroundColor: 'rgba(255,255,255,0.1)',
+        }}
       >
-        <Text className="text-xs text-text-secondary">⋮⋮</Text>
+        <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>⋮⋮</Text>
       </View>
     </Animated.View>
   );
 }
+
+const fabStyles = StyleSheet.create({
+  mainFab: {
+    position: 'absolute',
+    right: 18,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(82, 82, 82, 0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 120,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+  },
+  mainFabText: {
+    color: '#FFFFFF',
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: '500',
+  },
+  menuContainer: {
+    position: 'absolute',
+    right: 18,
+    alignItems: 'flex-end',
+    zIndex: 130,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  menuLabel: {
+    minWidth: 160,
+    backgroundColor: 'rgba(58, 58, 58, 0.96)',
+    paddingHorizontal: 24,
+    paddingVertical: 19,
+    borderRadius: 30,
+    marginRight: 12,
+  },
+  menuLabelText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  menuIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(58, 58, 58, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+  },
+  menuIconGlyph: {
+    color: '#34D399',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  closeFab: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(82, 82, 82, 0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 8,
+  },
+  closeFabText: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '500',
+  },
+});

@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/stores/auth.store';
 import { useFinanceStore } from '../../src/stores/finance.store';
+import { useTodoStore } from '../../src/stores/todo.store';
 import { useCategoryStore } from '../../src/stores/category.store';
 import { useAssetStore } from '../../src/stores/asset.store';
 import { CreateTransactionDto, TransactionType } from '../../src/types';
@@ -30,6 +31,7 @@ const KEYPAD = [
 export default function AddTransactionModal() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const selectedDate = useTodoStore((state) => state.selectedDate);
   const { addTransaction } = useFinanceStore();
   const { getCategoriesByType } = useCategoryStore();
   const { assets } = useAssetStore();
@@ -89,7 +91,7 @@ export default function AddTransactionModal() {
         description: description.trim(),
         category_id: categoryId,
         asset_id: assetId,
-        transaction_date: today(),
+        transaction_date: selectedDate || today(),
       };
       await addTransaction(dto);
       router.back();
